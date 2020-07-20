@@ -26,7 +26,18 @@ let view (state: State) (dispatch: Msg -> unit) =
           Html.button
               [ prop.onClick (fun _ -> dispatch Decrement)
                 prop.text "Decrement" ]
-          Html.h1 state.Count ]
+          Html.h1 state.Count
+          Html.svg
+              [ //prop.viewBox (0, 0, 100, 100)
+                Html.rect
+                    [ prop.width 100
+                      prop.height 200
+                      prop.x 10
+                      prop.y 20
+                      prop.style [ style.fill "Orange" ]
+                      prop.stroke "Red"
+                      prop.strokeWidth 2 ]
+                unbox ("width", "40%") ] ]
 
 Program.mkSimple init update view
 |> Program.withReactSynchronous "elmish-app"
