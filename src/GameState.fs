@@ -1,4 +1,6 @@
-namespace Tetris
+namespace Tetris.Logic
+
+open Tetris.Types
 
 type PieceState =
     { Shape: PieceShape
@@ -6,8 +8,10 @@ type PieceState =
       X: int
       Y: int }
 
+type BoardArray = (int * int) [,]
+
 type GameState =
-    { Board: (int * int) [,]
+    { Board: BoardArray
       CurrentPiece: PieceState }
 
 module GameLogic =
@@ -17,12 +21,22 @@ module GameLogic =
     [<Literal>]
     let BoardHeight = 20
 
+    [<Literal>]
+    let PieceSize = 4
+
     let getRandomPiece () =
-        { Shape = PieceShape.I
+        { Shape = I
           Orientation = Up
           X = 5
           Y = 0 }
 
+    let nextOrientation (currentOrientation: Orientation): Orientation =
+        match currentOrientation with
+        | Up -> Left
+        | Left -> Down
+        | Down -> Right
+        | Right -> Up
+
     let initState () =
-        { Board = Array2D.init BoardWidth BoardHeight (fun x y -> (x, y))
+        { Board = Array2D.zeroCreate BoardWidth BoardHeight
           CurrentPiece = getRandomPiece () }

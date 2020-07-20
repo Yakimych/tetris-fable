@@ -1,4 +1,4 @@
-module Tetris
+module Tetris.Types
 
 type PieceShape =
     | T
@@ -32,7 +32,7 @@ module PieceI =
                [| 0; 0; 0; 0 |] |]
 
 module PieceO =
-    let getMatrix (_: Orientation) =
+    let getMatrix () =
         [| [| 0; 0; 0; 0 |]
            [| 0; 1; 1; 0 |]
            [| 0; 1; 1; 0 |]
@@ -161,7 +161,7 @@ module PieceT =
 let getPieceMatrix (pieceShape: PieceShape) (orientation: Orientation) =
     match pieceShape with
     | I -> PieceI.getMatrix orientation
-    | O -> PieceO.getMatrix orientation
+    | O -> PieceO.getMatrix ()
     | J -> PieceJ.getMatrix orientation
     | L -> PieceL.getMatrix orientation
     | S -> PieceS.getMatrix orientation
