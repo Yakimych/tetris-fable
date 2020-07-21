@@ -60,8 +60,8 @@ let drawBoard (board: BoardMap): Fable.React.ReactElement list =
 
 let drawPiece (pieceState: PieceState) =
     getPieceMap pieceState.Shape pieceState.Orientation
-    |> Map.toList
-    |> List.map (fun ((x, y), _) -> drawCell (pieceState.X + x) (pieceState.Y + y) "Blue")
+    |> Set.toList
+    |> List.map (fun (x, y) -> drawCell (pieceState.X + x) (pieceState.Y + y) "Blue")
 
 let view (model: Model) (dispatch: Msg -> unit) =
     Html.div

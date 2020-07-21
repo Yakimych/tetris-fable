@@ -8,7 +8,7 @@ type PieceState =
       X: int
       Y: int }
 
-type BoardMap = Map<int * int, int>
+type BoardMap = Map<int * int, PieceShape>
 
 type GameState =
     { Board: BoardMap
@@ -58,9 +58,9 @@ module GameLogic =
 
     let landPieceOnBoard (piece: PieceState) (board: BoardMap) =
         getPieceMap piece.Shape piece.Orientation
-        |> Map.fold (fun tempBoard (x, y) cellValue ->
+        |> Set.fold (fun tempBoard (x, y) ->
             tempBoard
-            |> Map.add (x + piece.X, y + piece.Y) cellValue) board
+            |> Map.add (x + piece.X, y + piece.Y) piece.Shape) board
 
     let hasCollision (piece: PieceState) (board: BoardMap) =
         // TODO: Implement
