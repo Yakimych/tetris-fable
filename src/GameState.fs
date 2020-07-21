@@ -8,7 +8,7 @@ type PieceState =
       X: int
       Y: int }
 
-type BoardArray = (int * int) [,]
+type BoardArray = int array array
 
 type GameState =
     { Board: BoardArray
@@ -28,7 +28,7 @@ module GameLogic =
         { Shape = I
           Orientation = Up
           X = 5
-          Y = 0 }
+          Y = 2 }
 
     let nextOrientation (currentOrientation: Orientation): Orientation =
         match currentOrientation with
@@ -38,5 +38,53 @@ module GameLogic =
         | Right -> Up
 
     let initState () =
-        { Board = Array2D.zeroCreate BoardWidth BoardHeight
+        let line = [| 0 .. BoardWidth |]
+
+        let lines =
+            [| 0 .. BoardHeight |]
+            |> Array.map (fun _ -> line)
+
+        { Board = lines
           CurrentPiece = getRandomPiece () }
+
+    let movePieceDown (gameState: GameState): GameState =
+        let newPiece =
+            { gameState.CurrentPiece with
+                  Y = gameState.CurrentPiece.Y + 1 }
+
+        { gameState with
+              CurrentPiece = newPiece }
+
+    let movePieceUp (gameState: GameState): GameState =
+        let newPiece =
+            { gameState.CurrentPiece with
+                  Y = gameState.CurrentPiece.Y - 1 }
+
+        { gameState with
+              CurrentPiece = newPiece }
+
+    let movePieceLeft (gameState: GameState): GameState =
+        let newPiece =
+            { gameState.CurrentPiece with
+                  X = gameState.CurrentPiece.X - 1 }
+
+        { gameState with
+              CurrentPiece = newPiece }
+
+    let movePieceRight (gameState: GameState): GameState =
+        let newPiece =
+            { gameState.CurrentPiece with
+                  X = gameState.CurrentPiece.X + 1 }
+
+        { gameState with
+              CurrentPiece = newPiece }
+
+    let rotatePiece (gameState: GameState): GameState =
+        let newPiece =
+            { gameState.CurrentPiece with
+                  Orientation =
+                      gameState.CurrentPiece.Orientation
+                      |> nextOrientation }
+
+        { gameState with
+              CurrentPiece = newPiece }
