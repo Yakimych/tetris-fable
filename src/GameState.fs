@@ -25,7 +25,22 @@ module GameLogic =
     let PieceSize = 4
 
     let getRandomPiece () =
-        { Shape = I
+        let randomNumber = System.Random().Next(7)
+
+        let shape =
+            match randomNumber with
+            | 0 -> T
+            | 1 -> S
+            | 2 -> Z
+            | 3 -> I
+            | 4 -> O
+            | 5 -> L
+            | 6 -> J
+            | _ ->
+                failwithf "Something went wrong: the random number expected to be between 0 and 6. Actual: %d"
+                    randomNumber
+
+        { Shape = shape
           Orientation = Up
           X = 5
           Y = 2 }
@@ -41,10 +56,18 @@ module GameLogic =
         { Board = Map.empty
           CurrentPiece = getRandomPiece () }
 
-    let landPieceOnBoard (board: BoardMap) (piece: PieceState) =
-
+    let landPieceOnBoard (piece: PieceState) (board: BoardMap) =
+        // TODO: Implement
         let asd = board |> Map.add (1, 1) 50
         asd
+
+    let hasCollision (piece: PieceState) (board: BoardMap) =
+        // TODO: Implement
+        false
+
+    let spawnNextPiece (gameState: GameState): GameState =
+        { gameState with
+              CurrentPiece = getRandomPiece () }
 
     let movePieceDown (gameState: GameState): GameState =
         let newPiece =

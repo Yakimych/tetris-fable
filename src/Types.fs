@@ -170,9 +170,9 @@ let getPieceMap (pieceShape: PieceShape) (orientation: Orientation) =
         | T -> PieceT.getMatrix orientation
 
     matrix
-    |> Array.mapi (fun x column ->
-        column
-        |> Array.mapi (fun y cellValue -> if cellValue = 1 then ((x, y), cellValue) |> Some else None)) // TODO: Do we need cellValue at all?
+    |> Array.mapi (fun y row ->
+        row
+        |> Array.mapi (fun x cellValue -> if cellValue = 1 then ((x, y), cellValue) |> Some else None)) // TODO: Do we need cellValue at all?
     |> Array.concat
     |> Array.choose id
     |> Map.ofArray

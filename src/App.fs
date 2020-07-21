@@ -14,6 +14,8 @@ type Msg =
     | RightPressed
     | LeftPressed
     | RotatePressed
+    | SpawnNextPiece // TODO: This should be an effect
+    | LandPieceInPlace
 
 let init () = GameLogic.initState ()
 
@@ -24,6 +26,12 @@ let update (msg: Msg) (model: Model): Model =
     | LeftPressed -> model |> GameLogic.movePieceLeft
     | RightPressed -> model |> GameLogic.movePieceRight
     | RotatePressed -> model |> GameLogic.rotatePiece
+    | SpawnNextPiece -> model |> GameLogic.spawnNextPiece
+    | LandPieceInPlace ->
+        { model with
+              Board =
+                  model.Board
+                  |> GameLogic.landPieceOnBoard model.CurrentPiece }
 
 [<Literal>]
 let canvasWidth = 800
@@ -77,7 +85,15 @@ let view (model: Model) (dispatch: Msg -> unit) =
               [ prop.onClick (fun _ -> dispatch RotatePressed)
                 prop.text "Rotate" ]
 
-          Html.h1 "Board"
+          Html.button
+              [ prop.onClick (fun _ -> dispatch SpawnNextPiece)
+                prop.text "Spawn piece" ]
+
+          Html.button
+              [ prop.onClick (fun _ -> dispatch LandPieceInPlace)
+                prop.text "Land in place" ]
+
+          Html.h6 (sprintf "GameState: %A" model)
           Html.svg
               [ prop.viewBox (0, 0, canvasWidth, canvasHeight)
                 prop.children
