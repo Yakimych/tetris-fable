@@ -57,9 +57,10 @@ module GameLogic =
           CurrentPiece = getRandomPiece () }
 
     let landPieceOnBoard (piece: PieceState) (board: BoardMap) =
-        // TODO: Implement
-        let asd = board |> Map.add (1, 1) 50
-        asd
+        getPieceMap piece.Shape piece.Orientation
+        |> Map.fold (fun tempBoard (x, y) cellValue ->
+            tempBoard
+            |> Map.add (x + piece.X, y + piece.Y) cellValue) board
 
     let hasCollision (piece: PieceState) (board: BoardMap) =
         // TODO: Implement
