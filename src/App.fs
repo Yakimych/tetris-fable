@@ -59,9 +59,9 @@ let drawBoard (board: BoardMap): Fable.React.ReactElement list =
     |> List.map (fun (_, rect) -> rect)
 
 let drawPiece (pieceState: PieceState) =
-    getPieceMap pieceState.Shape pieceState.Orientation
+    getPieceSet pieceState.Shape pieceState.Orientation
     |> Set.toList
-    |> List.map (fun (x, y) -> drawCell (pieceState.X + x) (pieceState.Y + y) "Blue")
+    |> List.map (fun (x, y) -> drawCell (pieceState.X + x) (pieceState.Y + y) "Blue") // TODO: Extract function to offset by pieceState.X and Y
 
 let view (model: Model) (dispatch: Msg -> unit) =
     Html.div
@@ -70,12 +70,12 @@ let view (model: Model) (dispatch: Msg -> unit) =
               prop.text "Up" ]
 
           Html.button
-              [ prop.onClick (fun _ -> dispatch RightPressed)
-                prop.text "Right" ]
-
-          Html.button
               [ prop.onClick (fun _ -> dispatch LeftPressed)
                 prop.text "Left" ]
+
+          Html.button
+              [ prop.onClick (fun _ -> dispatch RightPressed)
+                prop.text "Right" ]
 
           Html.button
               [ prop.onClick (fun _ -> dispatch DownPressed)
@@ -94,6 +94,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                 prop.text "Land in place" ]
 
           Html.h6 (sprintf "GameState: %A" model)
+          Html.h6 (sprintf "PieceSet: %A" (getPieceSet model.CurrentPiece.Shape model.CurrentPiece.Orientation))
           Html.svg
               [ prop.viewBox (0, 0, canvasWidth, canvasHeight)
                 prop.children

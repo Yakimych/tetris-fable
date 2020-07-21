@@ -1,5 +1,7 @@
 module Tetris.Types
 
+type PieceSet = Set<int * int>
+
 type PieceShape =
     | T
     | S
@@ -158,7 +160,7 @@ module PieceT =
                [| 0; 1; 1; 0 |]
                [| 0; 1; 0; 0 |] |]
 
-let getPieceMap (pieceShape: PieceShape) (orientation: Orientation) =
+let getPieceSet (pieceShape: PieceShape) (orientation: Orientation): PieceSet =
     let matrix =
         match pieceShape with
         | I -> PieceI.getMatrix orientation
