@@ -8,10 +8,10 @@ type PieceState =
       X: int
       Y: int }
 
-type BoardArray = int array array
+type BoardMap = Map<int * int, int>
 
 type GameState =
-    { Board: BoardArray
+    { Board: BoardMap
       CurrentPiece: PieceState }
 
 module GameLogic =
@@ -38,14 +38,13 @@ module GameLogic =
         | Right -> Up
 
     let initState () =
-        let line = [| 0 .. BoardWidth |]
-
-        let lines =
-            [| 0 .. BoardHeight |]
-            |> Array.map (fun _ -> line)
-
-        { Board = lines
+        { Board = Map.empty
           CurrentPiece = getRandomPiece () }
+
+    let landPieceOnBoard (board: BoardMap) (piece: PieceState) =
+
+        let asd = board |> Map.add (1, 1) 50
+        asd
 
     let movePieceDown (gameState: GameState): GameState =
         let newPiece =

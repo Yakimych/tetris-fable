@@ -158,12 +158,21 @@ module PieceT =
                [| 0; 1; 1; 0 |]
                [| 0; 1; 0; 0 |] |]
 
-let getPieceMatrix (pieceShape: PieceShape) (orientation: Orientation) =
-    match pieceShape with
-    | I -> PieceI.getMatrix orientation
-    | O -> PieceO.getMatrix ()
-    | J -> PieceJ.getMatrix orientation
-    | L -> PieceL.getMatrix orientation
-    | S -> PieceS.getMatrix orientation
-    | Z -> PieceZ.getMatrix orientation
-    | T -> PieceT.getMatrix orientation
+let getPieceMap (pieceShape: PieceShape) (orientation: Orientation) =
+    let matrix =
+        match pieceShape with
+        | I -> PieceI.getMatrix orientation
+        | O -> PieceO.getMatrix ()
+        | J -> PieceJ.getMatrix orientation
+        | L -> PieceL.getMatrix orientation
+        | S -> PieceS.getMatrix orientation
+        | Z -> PieceZ.getMatrix orientation
+        | T -> PieceT.getMatrix orientation
+
+    matrix
+    |> Array.mapi (fun x column ->
+        column
+        |> Array.mapi (fun y cellValue -> if cellValue = 1 then ((x, y), cellValue) |> Some else None)) // TODO: Do we need cellValue at all?
+    |> Array.concat
+    |> Array.choose id
+    |> Map.ofArray

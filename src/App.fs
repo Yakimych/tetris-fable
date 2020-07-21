@@ -44,21 +44,16 @@ let drawCell (x: int) (y: int) (color: string) =
           prop.stroke "Red"
           prop.strokeWidth 2 ]
 
-let drawPiece (pieceState: PieceState) =
-    let pieceMatrix =
-        getPieceMatrix pieceState.Shape pieceState.Orientation
+let drawBoard (board: BoardMap): Fable.React.ReactElement list =
+    board
+    |> Map.map (fun (x, y) _pieceType -> drawCell x y "Green")
+    |> Map.toList
+    |> List.map (fun (_, rect) -> rect)
 
-    pieceMatrix
-    |> Array.mapi (fun x column ->
-        column
-        |> Array.mapi (fun y hasCell ->
-            if hasCell = 1 then
-                drawCell (pieceState.X + x) (pieceState.Y + y) "Blue"
-                |> Some
-            else
-                None))
-    |> Array.concat
-    |> Array.choose id
+let drawPiece (pieceState: PieceState) =
+    getPieceMap pieceState.Shape pieceState.Orientation
+    |> Map.toList
+    |> List.map (fun ((x, y), _) -> drawCell (pieceState.X + x) (pieceState.Y + y) "Blue")
 
 let view (model: Model) (dispatch: Msg -> unit) =
     Html.div
@@ -94,6 +89,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
                           prop.style [ style.fill "Orange" ]
                           prop.stroke "Red"
                           prop.strokeWidth 2 ]
+                      yield! drawBoard model.Board
                       yield! drawPiece model.CurrentPiece ]
                 unbox ("width", "40%") ] ]
 
