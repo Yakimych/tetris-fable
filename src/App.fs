@@ -117,7 +117,17 @@ let view (model: Model) (dispatch: Msg -> unit) =
           Html.h6 (sprintf "GameState: %A" model)
           Html.h6 (sprintf "PieceSet: %A" (getPieceSet model.CurrentPiece.Shape model.CurrentPiece.Orientation)) ]
 
+let timer initial =
+    Browser.Dom.console.log "timer"
+
+    let sub dispatch =
+        Browser.Dom.window.setInterval ((fun _ -> dispatch DownPressed), 1000, [||])
+        |> ignore
+
+    Cmd.ofSub sub
+
 Program.mkSimple init update view
+|> Program.withSubscription timer
 |> Program.withReactSynchronous "elmish-app"
 |> Program.withConsoleTrace
 |> Program.run
