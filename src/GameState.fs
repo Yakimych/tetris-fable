@@ -102,6 +102,41 @@ module GameLogic =
         { gameState with
               CurrentPiece = getRandomPiece () }
 
+    let isOccupiedByPiece (boardTile: BoardTile): bool =
+        match boardTile with
+        | OccupiedBy _ -> true
+        | Boundary _ -> false
+
+    let isFull (board: BoardMap) (line: int) =
+        let tilesOnLine =
+            board
+            |> Map.toList
+            |> List.where (fun ((_, y), boardTile) -> isOccupiedByPiece boardTile && y = line)
+            |> List.length
+
+        tilesOnLine = BoardWidth
+
+    let tryFindBottomMostFullLine (board: BoardMap): int option =
+        [ 0 .. BoardHeight - 1 ]
+        |> Seq.tryFindIndexBack (fun line -> line |> isFull board)
+
+    let removeLine (board: BoardMap) (line: int) =
+        board
+        |> Map.filter (fun (_, y) boardTile -> y <> line && boardTile |> isOccupiedByPiece)
+        |> Map.toList
+        |> List.map (fun ((x, y), boardTile) ->
+            let shiftedY = if y < line then y + 1 else y
+            ((x, shiftedY), boardTile))
+        |> Map.ofList
+
+    let rec removeLines (board: BoardMap): BoardMap =
+        // TODO: Option.map?
+        match board |> tryFindBottomMostFullLine with
+        | Some lineToRemove ->
+            let newBoard = removeLine board lineToRemove
+            removeLines newBoard
+        | None -> board
+
     let updateIfNoCollisionWith (newPiece: PieceState) (gameState: GameState) =
         if newPiece |> hasCollisionWith gameState.Board then
             gameState

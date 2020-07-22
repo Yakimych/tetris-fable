@@ -16,6 +16,7 @@ type Msg =
     | RotatePressed
     | SpawnNextPiece // TODO: This should be an effect
     | LandPieceInPlace
+    | RemoveLines
 
 let init () = GameLogic.initState ()
 
@@ -32,13 +33,15 @@ let update (msg: Msg) (model: Model): Model =
               Board =
                   model.Board
                   |> GameLogic.landPieceOnBoard model.CurrentPiece }
+    | RemoveLines ->
+        let newBoard = model.Board |> GameLogic.removeLines
+        { model with Board = newBoard }
 
 [<Literal>]
 let PieceSizeOnBoard = 20
 
 let canvasWidth = PieceSizeOnBoard * GameLogic.BoardWidth
 let canvasHeight = PieceSizeOnBoard * GameLogic.BoardHeight
-
 
 let drawCell (x: int) (y: int) (color: string) =
     Html.rect
@@ -90,6 +93,10 @@ let view (model: Model) (dispatch: Msg -> unit) =
           Html.button
               [ prop.onClick (fun _ -> dispatch LandPieceInPlace)
                 prop.text "Land in place" ]
+
+          Html.button
+              [ prop.onClick (fun _ -> dispatch RemoveLines)
+                prop.text "Remove Lines" ]
 
           Html.h6 "Board"
           Html.svg
