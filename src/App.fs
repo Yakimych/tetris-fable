@@ -34,23 +34,21 @@ let update (msg: Msg) (model: Model): Model =
                   |> GameLogic.landPieceOnBoard model.CurrentPiece }
 
 [<Literal>]
-let canvasWidth = 800
+let PieceSizeOnBoard = 20
 
-[<Literal>]
-let canvasHeight = 800
+let canvasWidth = PieceSizeOnBoard * GameLogic.BoardWidth
+let canvasHeight = PieceSizeOnBoard * GameLogic.BoardHeight
 
-[<Literal>]
-let pieceSizeOnBoard = 20
 
 let drawCell (x: int) (y: int) (color: string) =
     Html.rect
-        [ prop.width pieceSizeOnBoard
-          prop.height pieceSizeOnBoard
-          prop.x (x * pieceSizeOnBoard)
-          prop.y (y * pieceSizeOnBoard)
+        [ prop.width PieceSizeOnBoard
+          prop.height PieceSizeOnBoard
+          prop.x (x * PieceSizeOnBoard)
+          prop.y (y * PieceSizeOnBoard)
           prop.style [ style.fill color ]
-          prop.stroke "Red"
-          prop.strokeWidth 2 ]
+          prop.stroke "Black"
+          prop.strokeWidth 1 ]
 
 let drawBoard (board: BoardMap): Fable.React.ReactElement list =
     board
@@ -93,8 +91,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
               [ prop.onClick (fun _ -> dispatch LandPieceInPlace)
                 prop.text "Land in place" ]
 
-          Html.h6 (sprintf "GameState: %A" model)
-          Html.h6 (sprintf "PieceSet: %A" (getPieceSet model.CurrentPiece.Shape model.CurrentPiece.Orientation))
+          Html.h6 "Board"
           Html.svg
               [ prop.viewBox (0, 0, canvasWidth, canvasHeight)
                 prop.children
@@ -103,12 +100,15 @@ let view (model: Model) (dispatch: Msg -> unit) =
                           prop.height canvasHeight
                           prop.x 0
                           prop.y 0
-                          prop.style [ style.fill "Orange" ]
-                          prop.stroke "Red"
-                          prop.strokeWidth 2 ]
+                          prop.style [ style.fill "LightGray" ]
+                          prop.stroke "Black"
+                          prop.strokeWidth 1 ]
                       yield! drawBoard model.Board
                       yield! drawPiece model.CurrentPiece ]
-                unbox ("width", "40%") ] ]
+                unbox ("width", "200px") ]
+
+          Html.h6 (sprintf "GameState: %A" model)
+          Html.h6 (sprintf "PieceSet: %A" (getPieceSet model.CurrentPiece.Shape model.CurrentPiece.Orientation)) ]
 
 Program.mkSimple init update view
 |> Program.withReactSynchronous "elmish-app"
