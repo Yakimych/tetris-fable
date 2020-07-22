@@ -1,5 +1,6 @@
 namespace Tetris.Logic
 
+open System
 open Tetris.Types
 
 type PieceState =
@@ -16,7 +17,9 @@ type BoardMap = Map<int * int, BoardTile>
 
 type GameState =
     { Board: BoardMap
-      CurrentPiece: PieceState }
+      CurrentPiece: PieceState
+      MillisecondsSinceLastTick: int
+      TimerInterval: int }
 
 module GameLogic =
     [<Literal>]
@@ -76,7 +79,9 @@ module GameLogic =
 
     let initState () =
         { Board = Map.empty |> addBoundaries
-          CurrentPiece = getRandomPiece () }
+          CurrentPiece = getRandomPiece ()
+          MillisecondsSinceLastTick = 0 // TODO: TimeSpan?
+          TimerInterval = 1000 }
 
     let landPieceOnBoard (piece: PieceState) (board: BoardMap) =
         getPieceSet piece.Shape piece.Orientation
@@ -122,7 +127,7 @@ module GameLogic =
 
     let removeLine (board: BoardMap) (line: int) =
         board
-        |> Map.filter (fun (_, y) boardTile -> y <> line && boardTile |> isOccupiedByPiece)
+        |> Map.filter (fun (_, y) _ -> y <> line)
         |> Map.toList
         |> List.map (fun ((x, y), boardTile) ->
             let shiftedY = if y < line then y + 1 else y
@@ -149,7 +154,20 @@ module GameLogic =
             { gameState.CurrentPiece with
                   Y = gameState.CurrentPiece.Y + 1 }
 
-        gameState |> updateIfNoCollisionWith newPiece
+        let hasCollision =
+            newPiece |> hasCollisionWith gameState.Board
+
+        if hasCollision then
+            let newBoard =
+                gameState.Board
+                |> landPieceOnBoard gameState.CurrentPiece
+                |> removeLines
+
+            { gameState with Board = newBoard }
+            |> spawnNextPiece
+        else
+            { gameState with
+                  CurrentPiece = newPiece }
 
     let movePieceUp (gameState: GameState): GameState =
         let newPiece =
@@ -180,3 +198,15 @@ module GameLogic =
                       |> nextOrientation }
 
         gameState |> updateIfNoCollisionWith newPiece
+
+    let tick (milliseconds: int) (gameState: GameState) =
+        let newMillisecondsSinceLastTick =
+            gameState.MillisecondsSinceLastTick + milliseconds
+
+        if newMillisecondsSinceLastTick > gameState.TimerInterval then
+            { gameState with
+                  MillisecondsSinceLastTick = 0 }
+            |> movePieceDown
+        else
+            { gameState with
+                  MillisecondsSinceLastTick = newMillisecondsSinceLastTick }

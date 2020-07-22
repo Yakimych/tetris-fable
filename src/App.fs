@@ -1,5 +1,6 @@
 module App
 
+open System
 open Elmish
 open Elmish.React
 open Feliz
@@ -9,6 +10,7 @@ open Tetris.Types
 type Model = GameState
 
 type Msg =
+    | Tick of DateTime
     | UpPressed
     | DownPressed
     | RightPressed
@@ -18,10 +20,17 @@ type Msg =
     | LandPieceInPlace
     | RemoveLines
 
+[<Literal>]
+let PieceSizeOnBoard = 20
+
+[<Literal>]
+let TickResolutionInMs = 10
+
 let init () = GameLogic.initState ()
 
 let update (msg: Msg) (model: Model): Model =
     match msg with
+    | Tick _timeOfTick -> model |> GameLogic.tick TickResolutionInMs // TODO: Replace hardcoded TickResolution with calculation based on time
     | DownPressed -> model |> GameLogic.movePieceDown
     | UpPressed -> model |> GameLogic.movePieceUp
     | LeftPressed -> model |> GameLogic.movePieceLeft
@@ -36,9 +45,6 @@ let update (msg: Msg) (model: Model): Model =
     | RemoveLines ->
         let newBoard = model.Board |> GameLogic.removeLines
         { model with Board = newBoard }
-
-[<Literal>]
-let PieceSizeOnBoard = 20
 
 let canvasWidth = PieceSizeOnBoard * GameLogic.BoardWidth
 let canvasHeight = PieceSizeOnBoard * GameLogic.BoardHeight
@@ -55,7 +61,8 @@ let drawCell (x: int) (y: int) (color: string) =
 
 let drawBoard (board: BoardMap): Fable.React.ReactElement list =
     board
-    |> Map.map (fun (x, y) _pieceType -> drawCell x y "Green")
+    |> Map.map (fun (x, y) boardTile ->
+        drawCell x y (if boardTile |> GameLogic.isOccupiedByPiece then "Green" else "Black"))
     |> Map.toList
     |> List.map (fun (_, rect) -> rect)
 
@@ -100,7 +107,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
 
           Html.h6 "Board"
           Html.svg
-              [ prop.viewBox (0, 0, canvasWidth, canvasHeight)
+              [ prop.viewBox (0, 0, canvasWidth + 20, canvasHeight + 20)
                 prop.children
                     [ Html.rect
                         [ prop.width canvasWidth
@@ -121,7 +128,7 @@ let timer initial =
     Browser.Dom.console.log "timer"
 
     let sub dispatch =
-        Browser.Dom.window.setInterval ((fun _ -> dispatch DownPressed), 1000, [||])
+        Browser.Dom.window.setInterval ((fun _ -> dispatch (Tick DateTime.UtcNow)), TickResolutionInMs, [||])
         |> ignore
 
     Cmd.ofSub sub
