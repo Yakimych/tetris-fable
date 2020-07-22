@@ -52,8 +52,32 @@ module GameLogic =
         | Down -> Right
         | Right -> Up
 
+    let edgePieceShape = T // TODO: Replace with None
+
+    let addLeftBoundary (board: BoardMap): BoardMap =
+        [ 0 .. BoardHeight ]
+        |> Seq.fold (fun tempBoard y -> tempBoard |> Map.add (-1, y) edgePieceShape) board
+
+    let addBottomBoundary (board: BoardMap): BoardMap =
+        [ 0 .. BoardWidth ]
+        |> Seq.fold (fun tempBoard x ->
+            tempBoard
+            |> Map.add (x, BoardHeight) edgePieceShape) board
+
+    let addRightBoundary (board: BoardMap): BoardMap =
+        [ 0 .. BoardHeight ]
+        |> Seq.fold (fun tempBoard y ->
+            tempBoard
+            |> Map.add (BoardWidth, y) edgePieceShape) board
+
+    let addBoundaries (board: BoardMap): BoardMap =
+        board
+        |> addLeftBoundary
+        |> addRightBoundary
+        |> addBottomBoundary
+
     let initState () =
-        { Board = Map.empty
+        { Board = Map.empty |> addBoundaries
           CurrentPiece = getRandomPiece () }
 
     let landPieceOnBoard (piece: PieceState) (board: BoardMap) =
