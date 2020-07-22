@@ -8,7 +8,11 @@ type PieceState =
       X: int
       Y: int }
 
-type BoardMap = Map<int * int, PieceShape>
+type BoardTile =
+    | OccupiedBy of PieceShape
+    | Boundary
+
+type BoardMap = Map<int * int, BoardTile>
 
 type GameState =
     { Board: BoardMap
@@ -52,23 +56,17 @@ module GameLogic =
         | Down -> Right
         | Right -> Up
 
-    let edgePieceShape = T // TODO: Replace with None
-
     let addLeftBoundary (board: BoardMap): BoardMap =
         [ 0 .. BoardHeight ]
-        |> Seq.fold (fun tempBoard y -> tempBoard |> Map.add (-1, y) edgePieceShape) board
+        |> Seq.fold (fun tempBoard y -> tempBoard |> Map.add (-1, y) Boundary) board
 
     let addBottomBoundary (board: BoardMap): BoardMap =
         [ 0 .. BoardWidth ]
-        |> Seq.fold (fun tempBoard x ->
-            tempBoard
-            |> Map.add (x, BoardHeight) edgePieceShape) board
+        |> Seq.fold (fun tempBoard x -> tempBoard |> Map.add (x, BoardHeight) Boundary) board
 
     let addRightBoundary (board: BoardMap): BoardMap =
         [ 0 .. BoardHeight ]
-        |> Seq.fold (fun tempBoard y ->
-            tempBoard
-            |> Map.add (BoardWidth, y) edgePieceShape) board
+        |> Seq.fold (fun tempBoard y -> tempBoard |> Map.add (BoardWidth, y) Boundary) board
 
     let addBoundaries (board: BoardMap): BoardMap =
         board
@@ -84,7 +82,7 @@ module GameLogic =
         getPieceSet piece.Shape piece.Orientation
         |> Set.fold (fun tempBoard (x, y) ->
             tempBoard
-            |> Map.add (x + piece.X, y + piece.Y) piece.Shape) board
+            |> Map.add (x + piece.X, y + piece.Y) (OccupiedBy piece.Shape)) board
 
     let hasCollisionWith (board: BoardMap) (piece: PieceState) =
         let pieceSet =
