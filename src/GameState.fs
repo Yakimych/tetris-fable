@@ -60,7 +60,7 @@ module GameLogic =
         | Right -> Up
 
     let addLeftBoundary (board: BoardMap): BoardMap =
-        [ 0 .. BoardHeight ]
+        [ -1 .. BoardHeight ]
         |> Seq.fold (fun tempBoard y -> tempBoard |> Map.add (-1, y) Boundary) board
 
     let addBottomBoundary (board: BoardMap): BoardMap =
@@ -68,7 +68,7 @@ module GameLogic =
         |> Seq.fold (fun tempBoard x -> tempBoard |> Map.add (x, BoardHeight) Boundary) board
 
     let addRightBoundary (board: BoardMap): BoardMap =
-        [ 0 .. BoardHeight ]
+        [ -1 .. BoardHeight ]
         |> Seq.fold (fun tempBoard y -> tempBoard |> Map.add (BoardWidth, y) Boundary) board
 
     let addBoundaries (board: BoardMap): BoardMap =
@@ -110,7 +110,12 @@ module GameLogic =
     let isOccupiedByPiece (boardTile: BoardTile): bool =
         match boardTile with
         | OccupiedBy _ -> true
-        | Boundary _ -> false
+        | Boundary -> false
+
+    let isBoundary (boardTile: BoardTile): bool =
+        match boardTile with
+        | OccupiedBy _ -> false
+        | Boundary -> true
 
     let isFull (board: BoardMap) (line: int) =
         let tilesOnLine =
@@ -127,7 +132,7 @@ module GameLogic =
 
     let removeLine (board: BoardMap) (line: int) =
         board
-        |> Map.filter (fun (_, y) _ -> y <> line)
+        |> Map.filter (fun (_, y) boardTile -> y <> line && boardTile |> isBoundary)
         |> Map.toList
         |> List.map (fun ((x, y), boardTile) ->
             let shiftedY = if y < line then y + 1 else y
