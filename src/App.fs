@@ -10,14 +10,12 @@ open Tetris.Styling
 
 type Model = GameState
 
-// TODO: Remo unused messages
 type Msg =
     | Tick of DateTime
     | UpPressed
     | DownPressed
     | RightPressed
     | LeftPressed
-    | RotatePressed
     | SpawnNextPiece // TODO: This should be an effect
     | LandPieceInPlace
     | RemoveLines
@@ -36,11 +34,10 @@ let init () = GameLogic.initState ()
 let update (msg: Msg) (model: Model): Model =
     match msg with
     | Tick _timeOfTick -> model |> GameLogic.tick TickResolutionInMs // TODO: Replace hardcoded TickResolution with calculation based on time
-    | DownPressed -> model |> GameLogic.movePieceDown
-    | UpPressed -> model |> GameLogic.movePieceUp
+    | DownPressed -> model |> GameLogic.dropPiece
+    | UpPressed -> model |> GameLogic.rotatePiece
     | LeftPressed -> model |> GameLogic.movePieceLeft
     | RightPressed -> model |> GameLogic.movePieceRight
-    | RotatePressed -> model |> GameLogic.rotatePiece
     | SpawnNextPiece -> model |> GameLogic.spawnNextPiece
     | LandPieceInPlace ->
         { model with
@@ -141,28 +138,8 @@ let drawBoard (board: BoardMap): Fable.React.ReactElement list =
 let view (model: Model) (dispatch: Msg -> unit) =
     Html.div
         [ Html.button
-            [ prop.onClick (fun _ -> dispatch UpPressed)
-              prop.text "Up" ]
-
-          Html.button
-              [ prop.onClick (fun _ -> dispatch LeftPressed)
-                prop.text "Left" ]
-
-          Html.button
-              [ prop.onClick (fun _ -> dispatch RightPressed)
-                prop.text "Right" ]
-
-          Html.button
-              [ prop.onClick (fun _ -> dispatch DownPressed)
-                prop.text "Down" ]
-
-          Html.button
-              [ prop.onClick (fun _ -> dispatch RotatePressed)
-                prop.text "Rotate" ]
-
-          Html.button
-              [ prop.onClick (fun _ -> dispatch SpawnNextPiece)
-                prop.text "Spawn piece" ]
+            [ prop.onClick (fun _ -> dispatch SpawnNextPiece)
+              prop.text "Spawn piece" ]
 
           Html.button
               [ prop.onClick (fun _ -> dispatch LandPieceInPlace)
@@ -214,7 +191,7 @@ let mergedSubscription initial =
              (fun event ->
                  let keyboardEvent = event :?> Browser.Types.KeyboardEvent
                  match keyboardEvent.key with
-                 | "ArrowUp" -> dispatch RotatePressed
+                 | "ArrowUp" -> dispatch UpPressed
                  | "ArrowDown" -> dispatch DownPressed
                  | "ArrowLeft" -> dispatch LeftPressed
                  | "ArrowRight" -> dispatch RightPressed

@@ -105,6 +105,7 @@ module GameLogic =
         let intersectionSet = boardSet |> Set.intersect pieceSet
         intersectionSet |> Set.isEmpty |> not
 
+    // TODO: This should be a Cmd/effect
     let spawnNextPiece (gameState: GameState): GameState =
         { gameState with
               CurrentPiece = resetPiece gameState.NextShape
@@ -161,32 +162,37 @@ module GameLogic =
             { gameState with
                   CurrentPiece = newPiece }
 
+    let processPieceLanded (gameState: GameState): GameState =
+        let newBoard =
+            gameState.Board
+            |> landPieceOnBoard gameState.CurrentPiece
+            |> removeLines
+
+        { gameState with Board = newBoard }
+        |> spawnNextPiece
+
+    let rec dropPiece (gameState: GameState): GameState =
+        let newPiece =
+            { gameState.CurrentPiece with
+                  Y = gameState.CurrentPiece.Y + 1 }
+
+        if newPiece |> hasCollisionWith gameState.Board then
+            gameState |> processPieceLanded
+        else
+            { gameState with
+                  CurrentPiece = newPiece }
+            |> dropPiece
+
     let movePieceDown (gameState: GameState): GameState =
         let newPiece =
             { gameState.CurrentPiece with
                   Y = gameState.CurrentPiece.Y + 1 }
 
-        let hasCollision =
-            newPiece |> hasCollisionWith gameState.Board
-
-        if hasCollision then
-            let newBoard =
-                gameState.Board
-                |> landPieceOnBoard gameState.CurrentPiece
-                |> removeLines
-
-            { gameState with Board = newBoard }
-            |> spawnNextPiece
+        if newPiece |> hasCollisionWith gameState.Board then
+            gameState |> processPieceLanded
         else
             { gameState with
                   CurrentPiece = newPiece }
-
-    let movePieceUp (gameState: GameState): GameState =
-        let newPiece =
-            { gameState.CurrentPiece with
-                  Y = gameState.CurrentPiece.Y - 1 }
-
-        gameState |> updateIfNoCollisionWith newPiece
 
     let movePieceLeft (gameState: GameState): GameState =
         let newPiece =
