@@ -132,10 +132,14 @@ module GameLogic =
 
     let removeLine (board: BoardMap) (line: int) =
         board
-        |> Map.filter (fun (_, y) boardTile -> y <> line && boardTile |> isBoundary)
+        |> Map.filter (fun (_, y) boardTile -> y <> line || boardTile |> isBoundary)
         |> Map.toList
         |> List.map (fun ((x, y), boardTile) ->
-            let shiftedY = if y < line then y + 1 else y
+            let shiftedY =
+                if y < line && boardTile |> isOccupiedByPiece
+                then y + 1
+                else y
+
             ((x, shiftedY), boardTile))
         |> Map.ofList
 
