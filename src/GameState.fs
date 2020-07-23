@@ -12,6 +12,7 @@ type PieceState =
 type TimerState =
     | Running
     | Paused
+    | GameOver
 
 type GameState =
     { Board: BoardMap
@@ -107,9 +108,15 @@ module GameLogic =
 
     // TODO: This should be a Cmd/effect
     let spawnNextPiece (gameState: GameState): GameState =
-        { gameState with
-              CurrentPiece = resetPiece gameState.NextShape
-              NextShape = getRandomShape () }
+        let newCurrentPiece = resetPiece gameState.NextShape
+
+        if newCurrentPiece
+           |> hasCollisionWith gameState.Board then
+            { gameState with TimerState = GameOver }
+        else
+            { gameState with
+                  CurrentPiece = newCurrentPiece
+                  NextShape = getRandomShape () }
 
     let isOccupiedByPiece (boardTile: BoardTile): bool =
         match boardTile with
@@ -244,4 +251,5 @@ module GameLogic =
             else
                 { gameState with
                       MillisecondsSinceLastTick = newMillisecondsSinceLastTick }
-        | Paused -> gameState
+        | Paused
+        | GameOver -> gameState

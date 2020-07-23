@@ -137,6 +137,12 @@ let drawBoard (board: BoardMap): Fable.React.ReactElement list =
     |> Map.toList
     |> List.map (fun (_, rect) -> rect)
 
+let gameStatusText (timerState: TimerState): string =
+    match timerState with
+    | Running -> "Running"
+    | Paused -> "Paused"
+    | GameOver -> "Game Over"
+
 let view (model: Model) (dispatch: Msg -> unit) =
     Html.div
         [ Html.button
@@ -150,7 +156,8 @@ let view (model: Model) (dispatch: Msg -> unit) =
           Html.button
               [ prop.onClick (fun _ -> dispatch ResumePressed)
                 prop.text "Resume" ]
-          Html.h6 (sprintf "Lines cleared: %d" model.LinesCleared)
+
+          Html.h6 (sprintf "%s. Lines cleared: %d" (gameStatusText model.TimerState) model.LinesCleared)
           Html.svg
               [ prop.viewBox (0, 0, canvasWidth, canvasHeight)
                 prop.children
