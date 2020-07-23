@@ -21,6 +21,7 @@ type Msg =
     | RemoveLines
     | PausePressed
     | ResumePressed
+    | StartNewGamePressed
     | ToggleDebugPressed
 
 [<Literal>]
@@ -49,6 +50,9 @@ let update (msg: Msg) (model: Model): Model =
         { model with Board = newBoard }
     | PausePressed -> { model with TimerState = Paused }
     | ResumePressed -> { model with TimerState = Running }
+    | StartNewGamePressed ->
+        { GameLogic.initState () with
+              TimerState = Running }
     | ToggleDebugPressed ->
         { model with
               ShowDebugInfo = not model.ShowDebugInfo }
@@ -138,16 +142,8 @@ let drawBoard (board: BoardMap): Fable.React.ReactElement list =
 let view (model: Model) (dispatch: Msg -> unit) =
     Html.div
         [ Html.button
-            [ prop.onClick (fun _ -> dispatch SpawnNextPiece)
-              prop.text "Spawn piece" ]
-
-          Html.button
-              [ prop.onClick (fun _ -> dispatch LandPieceInPlace)
-                prop.text "Land in place" ]
-
-          Html.button
-              [ prop.onClick (fun _ -> dispatch RemoveLines)
-                prop.text "Remove Lines" ]
+            [ prop.onClick (fun _ -> dispatch StartNewGamePressed)
+              prop.text "Start New Game" ]
 
           Html.button
               [ prop.onClick (fun _ -> dispatch PausePressed)
@@ -156,7 +152,6 @@ let view (model: Model) (dispatch: Msg -> unit) =
           Html.button
               [ prop.onClick (fun _ -> dispatch ResumePressed)
                 prop.text "Resume" ]
-
           Html.h6 "Board"
           Html.svg
               [ prop.viewBox (0, 0, canvasWidth, canvasHeight)
@@ -172,11 +167,24 @@ let view (model: Model) (dispatch: Msg -> unit) =
                 unbox ("width", "120px") ]
 
           Html.h6 "Debug"
+
           Html.button
               [ prop.onClick (fun _ -> dispatch ToggleDebugPressed)
                 prop.text "Toggle Debug" ]
           if model.ShowDebugInfo then
-              yield! [ Html.span (sprintf "GameState: %A" model)
+              yield! [ Html.button
+                           [ prop.onClick (fun _ -> dispatch SpawnNextPiece)
+                             prop.text "Spawn piece" ]
+
+                       Html.button
+                           [ prop.onClick (fun _ -> dispatch LandPieceInPlace)
+                             prop.text "Land in place" ]
+
+                       Html.button
+                           [ prop.onClick (fun _ -> dispatch RemoveLines)
+                             prop.text "Remove Lines" ]
+
+                       Html.span (sprintf "GameState: %A" model)
                        Html.span
                            (sprintf "PieceSet: %A" (getPieceSet model.CurrentPiece.Shape model.CurrentPiece.Orientation)) ] ]
 
