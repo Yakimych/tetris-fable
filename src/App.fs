@@ -45,9 +45,7 @@ let update (msg: Msg) (model: Model): Model =
               Board =
                   model.Board
                   |> GameLogic.landPieceOnBoard model.CurrentPiece }
-    | RemoveLines ->
-        let newBoard = model.Board |> GameLogic.removeLines
-        { model with Board = newBoard }
+    | RemoveLines -> model |> GameLogic.clearLines
     | PausePressed -> { model with TimerState = Paused }
     | ResumePressed -> { model with TimerState = Running }
     | StartNewGamePressed ->
@@ -152,7 +150,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
           Html.button
               [ prop.onClick (fun _ -> dispatch ResumePressed)
                 prop.text "Resume" ]
-          Html.h6 "Board"
+          Html.h6 (sprintf "Lines cleared: %d" model.LinesCleared)
           Html.svg
               [ prop.viewBox (0, 0, canvasWidth, canvasHeight)
                 prop.children

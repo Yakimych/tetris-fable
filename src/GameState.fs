@@ -18,7 +18,7 @@ type GameState =
       CurrentPiece: PieceState
       NextShape: PieceShape
       MillisecondsSinceLastTick: int
-      TimerInterval: int
+      LinesCleared: int
       TimerState: TimerState
       ShowDebugInfo: bool }
 
@@ -81,7 +81,7 @@ module GameLogic =
           CurrentPiece = resetPiece <| getRandomShape ()
           NextShape = getRandomShape ()
           MillisecondsSinceLastTick = 0 // TODO: TimeSpan?
-          TimerInterval = 1000
+          LinesCleared = 0
           TimerState = Paused
           ShowDebugInfo = false }
 
@@ -147,13 +147,15 @@ module GameLogic =
             ((x, shiftedY), boardTile))
         |> Map.ofList
 
-    let rec removeLines (board: BoardMap): BoardMap =
-        // TODO: Option.map?
-        match board |> tryFindBottomMostFullLine with
+    let rec clearLines (gameState: GameState): GameState =
+        match gameState.Board |> tryFindBottomMostFullLine with
         | Some lineToRemove ->
-            let newBoard = removeLine board lineToRemove
-            removeLines newBoard
-        | None -> board
+            let newBoard = removeLine gameState.Board lineToRemove
+            clearLines
+                { gameState with
+                      Board = newBoard
+                      LinesCleared = gameState.LinesCleared + 1 }
+        | None -> gameState
 
     let updateIfNoCollisionWith (newPiece: PieceState) (gameState: GameState) =
         if newPiece |> hasCollisionWith gameState.Board then
@@ -166,9 +168,9 @@ module GameLogic =
         let newBoard =
             gameState.Board
             |> landPieceOnBoard gameState.CurrentPiece
-            |> removeLines
 
         { gameState with Board = newBoard }
+        |> clearLines
         |> spawnNextPiece
 
     let rec dropPiece (gameState: GameState): GameState =
@@ -217,6 +219,17 @@ module GameLogic =
 
         gameState |> updateIfNoCollisionWith newPiece
 
+    let timerIntervalsPerLevel = [| 1000; 500; 400; 300; 200; 100; 50 |]
+
+    [<Literal>]
+    let ClearedLinesBetweenLevelIncreases = 10
+
+    let timerInterval (linesCleared: int): int =
+        let level =
+            linesCleared / ClearedLinesBetweenLevelIncreases
+
+        timerIntervalsPerLevel.[level]
+
     let tick (milliseconds: int) (gameState: GameState): GameState =
         // TODO: Move out of the tick function?
         match gameState.TimerState with
@@ -224,7 +237,7 @@ module GameLogic =
             let newMillisecondsSinceLastTick =
                 gameState.MillisecondsSinceLastTick + milliseconds
 
-            if newMillisecondsSinceLastTick > gameState.TimerInterval then
+            if newMillisecondsSinceLastTick > timerInterval gameState.LinesCleared then
                 { gameState with
                       MillisecondsSinceLastTick = 0 }
                 |> movePieceDown
