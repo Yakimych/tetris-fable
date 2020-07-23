@@ -9,17 +9,16 @@ type PieceState =
       X: int
       Y: int }
 
-type BoardTile =
-    | OccupiedBy of PieceShape
-    | Boundary
-
-type BoardMap = Map<int * int, BoardTile>
+type TimerState =
+    | Running
+    | Paused
 
 type GameState =
     { Board: BoardMap
       CurrentPiece: PieceState
       MillisecondsSinceLastTick: int
-      TimerInterval: int }
+      TimerInterval: int
+      TimerState: TimerState }
 
 module GameLogic =
     [<Literal>]
@@ -81,7 +80,8 @@ module GameLogic =
         { Board = Map.empty |> addBoundaries
           CurrentPiece = getRandomPiece ()
           MillisecondsSinceLastTick = 0 // TODO: TimeSpan?
-          TimerInterval = 1000 }
+          TimerInterval = 1000
+          TimerState = Paused }
 
     let landPieceOnBoard (piece: PieceState) (board: BoardMap) =
         getPieceSet piece.Shape piece.Orientation
@@ -208,14 +208,18 @@ module GameLogic =
 
         gameState |> updateIfNoCollisionWith newPiece
 
-    let tick (milliseconds: int) (gameState: GameState) =
-        let newMillisecondsSinceLastTick =
-            gameState.MillisecondsSinceLastTick + milliseconds
+    let tick (milliseconds: int) (gameState: GameState): GameState =
+        // TODO: Move out of the tick function?
+        match gameState.TimerState with
+        | Running ->
+            let newMillisecondsSinceLastTick =
+                gameState.MillisecondsSinceLastTick + milliseconds
 
-        if newMillisecondsSinceLastTick > gameState.TimerInterval then
-            { gameState with
-                  MillisecondsSinceLastTick = 0 }
-            |> movePieceDown
-        else
-            { gameState with
-                  MillisecondsSinceLastTick = newMillisecondsSinceLastTick }
+            if newMillisecondsSinceLastTick > gameState.TimerInterval then
+                { gameState with
+                      MillisecondsSinceLastTick = 0 }
+                |> movePieceDown
+            else
+                { gameState with
+                      MillisecondsSinceLastTick = newMillisecondsSinceLastTick }
+        | Paused -> gameState

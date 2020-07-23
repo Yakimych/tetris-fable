@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Types.fs" />
+    <Compile Include="Styling.fs" />
     <Compile Include="GameState.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>

@@ -17,6 +17,12 @@ type Orientation =
     | Down
     | Right
 
+type BoardTile =
+    | OccupiedBy of PieceShape
+    | Boundary
+
+type BoardMap = Map<int * int, BoardTile>
+
 module PieceI =
     let getMatrix (orientation: Orientation) =
         match orientation with
