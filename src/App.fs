@@ -107,7 +107,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
 
           Html.h6 "Board"
           Html.svg
-              [ prop.viewBox (0, 0, canvasWidth + 20, canvasHeight + 20)
+              [ prop.viewBox (0, 0, canvasWidth, canvasHeight)
                 prop.children
                     [ Html.rect
                         [ prop.width canvasWidth
@@ -124,17 +124,28 @@ let view (model: Model) (dispatch: Msg -> unit) =
           Html.h6 (sprintf "GameState: %A" model)
           Html.h6 (sprintf "PieceSet: %A" (getPieceSet model.CurrentPiece.Shape model.CurrentPiece.Orientation)) ]
 
-let timer initial =
-    Browser.Dom.console.log "timer"
-
-    let sub dispatch =
+let mergedSubscription initial =
+    let timerSub dispatch =
         Browser.Dom.window.setInterval ((fun _ -> dispatch (Tick DateTime.UtcNow)), TickResolutionInMs, [||])
         |> ignore
 
-    Cmd.ofSub sub
+    let keyPressSub (dispatch: Msg -> unit) =
+        Browser.Dom.document.addEventListener
+            ("keydown",
+             (fun event ->
+                 let keyboardEvent = event :?> Browser.Types.KeyboardEvent
+                 match keyboardEvent.key with
+                 | "ArrowUp" -> dispatch RotatePressed
+                 | "ArrowDown" -> dispatch DownPressed
+                 | "ArrowLeft" -> dispatch LeftPressed
+                 | "ArrowRight" -> dispatch RightPressed
+                 | _ -> dispatch LeftPressed))
+
+    Cmd.batch
+        [ Cmd.ofSub timerSub
+          Cmd.ofSub keyPressSub ]
 
 Program.mkSimple init update view
-|> Program.withSubscription timer
+|> Program.withSubscription mergedSubscription
 |> Program.withReactSynchronous "elmish-app"
-|> Program.withConsoleTrace
 |> Program.run
