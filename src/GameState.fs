@@ -16,9 +16,11 @@ type TimerState =
 type GameState =
     { Board: BoardMap
       CurrentPiece: PieceState
+      NextShape: PieceShape
       MillisecondsSinceLastTick: int
       TimerInterval: int
-      TimerState: TimerState }
+      TimerState: TimerState
+      ShowDebugInfo: bool }
 
 module GameLogic =
     [<Literal>]
@@ -30,26 +32,18 @@ module GameLogic =
     [<Literal>]
     let PieceSize = 4
 
-    let getRandomPiece () =
-        let randomNumber = System.Random().Next(7)
-
-        let shape =
-            match randomNumber with
-            | 0 -> T
-            | 1 -> S
-            | 2 -> Z
-            | 3 -> I
-            | 4 -> O
-            | 5 -> L
-            | 6 -> J
-            | _ ->
-                failwithf "Something went wrong: the random number expected to be between 0 and 6. Actual: %d"
-                    randomNumber
-
-        { Shape = shape
-          Orientation = Up
-          X = 5
-          Y = 2 }
+    let getRandomShape (): PieceShape =
+        match Random().Next(7) with
+        | 0 -> T
+        | 1 -> S
+        | 2 -> Z
+        | 3 -> I
+        | 4 -> O
+        | 5 -> L
+        | 6 -> J
+        | unexpectedRandomNumber ->
+            failwithf "Something went wrong: the random number expected to be between 0 and 6. Actual: %d"
+                unexpectedRandomNumber
 
     let nextOrientation (currentOrientation: Orientation): Orientation =
         match currentOrientation with
@@ -76,12 +70,20 @@ module GameLogic =
         |> addRightBoundary
         |> addBottomBoundary
 
+    let resetPiece (pieceShape: PieceShape) =
+        { Shape = pieceShape
+          Orientation = Up
+          X = 3
+          Y = -2 }
+
     let initState () =
         { Board = Map.empty |> addBoundaries
-          CurrentPiece = getRandomPiece ()
+          CurrentPiece = resetPiece <| getRandomShape ()
+          NextShape = getRandomShape ()
           MillisecondsSinceLastTick = 0 // TODO: TimeSpan?
           TimerInterval = 1000
-          TimerState = Paused }
+          TimerState = Paused
+          ShowDebugInfo = false }
 
     let landPieceOnBoard (piece: PieceState) (board: BoardMap) =
         getPieceSet piece.Shape piece.Orientation
@@ -105,7 +107,8 @@ module GameLogic =
 
     let spawnNextPiece (gameState: GameState): GameState =
         { gameState with
-              CurrentPiece = getRandomPiece () }
+              CurrentPiece = resetPiece gameState.NextShape
+              NextShape = getRandomShape () }
 
     let isOccupiedByPiece (boardTile: BoardTile): bool =
         match boardTile with

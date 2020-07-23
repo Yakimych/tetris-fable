@@ -10,7 +10,7 @@ open Tetris.Styling
 
 type Model = GameState
 
-// TODO: Remove unused messages
+// TODO: Remo unused messages
 type Msg =
     | Tick of DateTime
     | UpPressed
@@ -23,6 +23,7 @@ type Msg =
     | RemoveLines
     | PausePressed
     | ResumePressed
+    | ToggleDebugPressed
 
 [<Literal>]
 let PieceSizeOnBoard = 20
@@ -51,9 +52,14 @@ let update (msg: Msg) (model: Model): Model =
         { model with Board = newBoard }
     | PausePressed -> { model with TimerState = Paused }
     | ResumePressed -> { model with TimerState = Running }
+    | ToggleDebugPressed ->
+        { model with
+              ShowDebugInfo = not model.ShowDebugInfo }
 
 let canvasWidth = PieceSizeOnBoard * GameLogic.BoardWidth
 let canvasHeight = PieceSizeOnBoard * GameLogic.BoardHeight
+
+let nextPieceCanvasSize = PieceSizeOnBoard * GameLogic.PieceSize
 
 let drawCell (x: int) (y: int) (color: string) =
     Html.rect
@@ -64,6 +70,30 @@ let drawCell (x: int) (y: int) (color: string) =
           prop.style [ style.fill color ]
           prop.stroke "Black"
           prop.strokeWidth 1 ]
+
+let drawPiece (atX: int) (atY: int) (pieceShape: PieceShape) (pieceOrientation: Orientation): ReactElement list =
+    getPieceSet pieceShape pieceOrientation
+    |> Set.toList
+    |> List.map (fun (x, y) -> drawCell (atX + x) (atY + y) (getPieceColor pieceShape))
+
+let drawPieceState (pieceState: PieceState) =
+    drawPiece pieceState.X pieceState.Y pieceState.Shape pieceState.Orientation
+
+let drawNextPieceCanvas (pieceShape: PieceShape): Fable.React.ReactElement list =
+    let nextPieceCanvasRect =
+        Html.rect
+            [ prop.width nextPieceCanvasSize
+              prop.height nextPieceCanvasSize
+              prop.x 0
+              prop.y 0
+              prop.style [ style.fill BoardBackgroundColor ]
+              prop.stroke BoardBorderColor
+              prop.strokeWidth 1 ]
+
+    let pieceTiles = drawPiece 0 0 pieceShape Up
+
+    [ nextPieceCanvasRect
+      yield! pieceTiles ]
 
 let drawBackground (): Fable.React.ReactElement list =
     let boardRect =
@@ -107,11 +137,6 @@ let drawBoard (board: BoardMap): Fable.React.ReactElement list =
     |> Map.map (fun (x, y) boardTile -> drawCell x y (getTileColor boardTile))
     |> Map.toList
     |> List.map (fun (_, rect) -> rect)
-
-let drawPiece (pieceState: PieceState) =
-    getPieceSet pieceState.Shape pieceState.Orientation
-    |> Set.toList
-    |> List.map (fun (x, y) -> drawCell (pieceState.X + x) (pieceState.Y + y) (getPieceColor pieceState.Shape)) // TODO: Extract function to offset by pieceState.X and Y
 
 let view (model: Model) (dispatch: Msg -> unit) =
     Html.div
@@ -161,11 +186,22 @@ let view (model: Model) (dispatch: Msg -> unit) =
                 prop.children
                     [ yield! drawBackground ()
                       yield! drawBoard model.Board
-                      yield! drawPiece model.CurrentPiece ]
+                      yield! drawPieceState model.CurrentPiece ]
                 unbox ("width", "200px") ]
 
-          Html.h6 (sprintf "GameState: %A" model)
-          Html.h6 (sprintf "PieceSet: %A" (getPieceSet model.CurrentPiece.Shape model.CurrentPiece.Orientation)) ]
+          Html.svg
+              [ prop.viewBox (0, 0, nextPieceCanvasSize, nextPieceCanvasSize)
+                prop.children (drawNextPieceCanvas model.NextShape)
+                unbox ("width", "120px") ]
+
+          Html.h6 "Debug"
+          Html.button
+              [ prop.onClick (fun _ -> dispatch ToggleDebugPressed)
+                prop.text "Toggle Debug" ]
+          if model.ShowDebugInfo then
+              yield! [ Html.span (sprintf "GameState: %A" model)
+                       Html.span
+                           (sprintf "PieceSet: %A" (getPieceSet model.CurrentPiece.Shape model.CurrentPiece.Orientation)) ] ]
 
 let mergedSubscription initial =
     let timerSub dispatch =
