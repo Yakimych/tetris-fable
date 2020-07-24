@@ -184,3 +184,10 @@ let getPieceSet (pieceShape: PieceShape) (orientation: Orientation): PieceSet =
     |> Array.concat
     |> Array.choose id
     |> Set.ofArray
+
+let getNextOrientation (currentOrientation: Orientation): Orientation =
+    match currentOrientation with
+    | Up -> Left
+    | Left -> Down
+    | Down -> Right
+    | Right -> Up
