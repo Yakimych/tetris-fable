@@ -8,21 +8,30 @@ open Tetris.Logic
 open Tetris.Types
 open Tetris.Styling
 
-type Model = GameState
+type Model =
+    | NotStarted
+    | Playing of GameState
+    | Paused of GameState
+    | GameOver of GameState
+
 
 type Msg =
     | Tick of DateTime
     | UpPressed
+    | MovePieceDown
     | DownPressed
     | RightPressed
     | LeftPressed
-    | SpawnNextPiece // TODO: This should be an effect
-    | LandPieceInPlace
+    | SpawnNextPieceRequested
+    | SpawnNextPiece of PieceShape
     | RemoveLines
     | PausePressed
     | ResumePressed
     | StartNewGamePressed
+    | StartNewGame of startingPieceShape: PieceShape * nextPieceShape: PieceShape
     | ToggleDebugPressed
+
+// LOGIC
 
 [<Literal>]
 let PieceSizeOnBoard = 20
@@ -30,30 +39,130 @@ let PieceSizeOnBoard = 20
 [<Literal>]
 let TickResolutionInMs = 10
 
-let init () = GameLogic.initState ()
+let init () = NotStarted, Cmd.none
 
-let update (msg: Msg) (model: Model): Model =
-    match msg with
-    | Tick _timeOfTick -> model |> GameLogic.tick TickResolutionInMs // TODO: Replace hardcoded TickResolution with calculation based on time
-    | DownPressed -> model |> GameLogic.dropPiece
-    | UpPressed -> model |> GameLogic.rotatePiece
-    | LeftPressed -> model |> GameLogic.movePieceLeft
-    | RightPressed -> model |> GameLogic.movePieceRight
-    | SpawnNextPiece -> model |> GameLogic.spawnNextPiece
-    | LandPieceInPlace ->
-        { model with
-              Board =
-                  model.Board
-                  |> GameLogic.landPieceOnBoard model.CurrentPiece }
-    | RemoveLines -> model |> GameLogic.clearLines
-    | PausePressed -> { model with TimerState = Paused }
-    | ResumePressed -> { model with TimerState = Running }
-    | StartNewGamePressed ->
-        { GameLogic.initState () with
-              TimerState = Running }
-    | ToggleDebugPressed ->
-        { model with
-              ShowDebugInfo = not model.ShowDebugInfo }
+let getRandomShape () =
+    match Random().Next(7) with
+    | 0 -> T
+    | 1 -> S
+    | 2 -> Z
+    | 3 -> I
+    | 4 -> O
+    | 5 -> L
+    | 6 -> J
+    | unexpectedRandomNumber ->
+        failwithf "Something went wrong: the random number expected to be between 0 and 6. Actual: %d"
+            unexpectedRandomNumber
+
+let spawnRandomPieceCmd =
+    getRandomShape >> SpawnNextPiece >> Cmd.ofMsg
+
+let startNewGameCmd () =
+    let startingPieceShape = getRandomShape ()
+    let nextPieceShape = getRandomShape ()
+
+    StartNewGame(startingPieceShape, nextPieceShape)
+    |> Cmd.ofMsg
+
+let movePieceLeft (pieceState: PieceState) = { pieceState with X = pieceState.X - 1 }
+
+let movePieceRight (pieceState: PieceState) = { pieceState with X = pieceState.X + 1 }
+
+let getRotatedPiece (pieceState: PieceState) =
+    { pieceState with
+          Orientation =
+              pieceState.Orientation
+              |> GameLogic.nextOrientation }
+
+let setPieceIfNoCollision (gameState: GameState) (newPiece: PieceState) =
+    if newPiece
+       |> GameLogic.hasCollisionWith gameState.Board then
+        Playing gameState, Cmd.none
+    else
+        Playing
+            ({ gameState with
+                   CurrentPiece = newPiece }),
+        Cmd.none
+
+let update (msg: Msg) (model: Model) =
+    match (model, msg) with
+    | (Playing gameState, Tick _timeOfTick) ->
+        let newMillisecondsSinceLastTick =
+            gameState.MillisecondsSinceLastTick
+            + TickResolutionInMs
+
+        if newMillisecondsSinceLastTick > GameLogic.getTimerInterval gameState.LinesCleared then
+            let stateWithResetElapsedTime =
+                { gameState with
+                      MillisecondsSinceLastTick = 0 }
+
+            Playing(stateWithResetElapsedTime), Cmd.ofMsg MovePieceDown
+        else
+            let stateWithUpdatedElapsedTime =
+                { gameState with
+                      MillisecondsSinceLastTick = newMillisecondsSinceLastTick }
+
+            Playing(stateWithUpdatedElapsedTime), Cmd.none // TODO: Replace hardcoded TickResolution with calculation based on time
+
+    | (Playing gameState, MovePieceDown)
+    | (Playing gameState, DownPressed) ->
+        let newPiece =
+            { gameState.CurrentPiece with
+                  Y = gameState.CurrentPiece.Y + 1 }
+
+        if newPiece
+           |> GameLogic.hasCollisionWith gameState.Board then
+
+            let newGameState =
+                gameState
+                |> GameLogic.landPiece
+                |> GameLogic.clearLines
+
+            Playing(newGameState), spawnRandomPieceCmd ()
+        else
+            Playing
+                ({ gameState with
+                       CurrentPiece = newPiece }),
+            Cmd.none
+
+    | (Playing gameState, UpPressed) -> setPieceIfNoCollision gameState (gameState.CurrentPiece |> getRotatedPiece)
+    | (Playing gameState, LeftPressed) -> setPieceIfNoCollision gameState (gameState.CurrentPiece |> movePieceLeft)
+    | (Playing gameState, RightPressed) -> setPieceIfNoCollision gameState (gameState.CurrentPiece |> movePieceRight)
+
+    | (Playing _, SpawnNextPieceRequested) -> model, spawnRandomPieceCmd ()
+    | (Playing gameState, SpawnNextPiece nextPieceShape) ->
+        let newCurrentPiece = GameLogic.initPiece gameState.NextShape
+
+        if newCurrentPiece
+           |> GameLogic.hasCollisionWith gameState.Board then
+            GameOver gameState, Cmd.none
+        else
+            let newState =
+                { gameState with
+                      CurrentPiece = newCurrentPiece
+                      NextShape = nextPieceShape }
+
+            Playing newState, Cmd.none
+
+    | (Playing gameState, RemoveLines) -> Playing(gameState |> GameLogic.clearLines), Cmd.none
+    | (Playing gameState, PausePressed) -> Paused gameState, Cmd.none
+
+    | (Paused gameState, ResumePressed) -> Playing gameState, Cmd.none
+
+    | (_, StartNewGamePressed) -> NotStarted, startNewGameCmd ()
+    | (_, StartNewGame (startingPieceShape, nextPieceShape)) ->
+        Playing(GameLogic.initState startingPieceShape nextPieceShape), Cmd.none
+
+    | (Paused gameState, ToggleDebugPressed) ->
+        Paused
+            { gameState with
+                  ShowDebugInfo = not gameState.ShowDebugInfo },
+        Cmd.none
+
+    | (_, _) -> model, Cmd.none
+
+
+// VIEW
 
 let canvasWidth = PieceSizeOnBoard * GameLogic.BoardWidth
 let canvasHeight = PieceSizeOnBoard * GameLogic.BoardHeight
@@ -137,13 +246,49 @@ let drawBoard (board: BoardMap): Fable.React.ReactElement list =
     |> Map.toList
     |> List.map (fun (_, rect) -> rect)
 
-let gameStatusText (timerState: TimerState): string =
-    match timerState with
-    | Running -> "Running"
-    | Paused -> "Paused"
-    | GameOver -> "Game Over"
+let linesClearedText gameState =
+    sprintf "Lines cleared: %d" gameState.LinesCleared
+
+let gameStatusText (model: Model): string =
+    match model with
+    | NotStarted -> "Not Started"
+    | Playing gameState ->
+        sprintf "Playing. %s"
+        <| linesClearedText gameState
+    | Paused gameState -> sprintf "Paused. %s" <| linesClearedText gameState
+    | GameOver gameState ->
+        sprintf "Game Over! %s"
+        <| linesClearedText gameState // TODO: Show final score
+
+let debugPanel (model: Model) (dispatch: Msg -> unit): ReactElement list =
+    match model with
+    | Paused gameState when gameState.ShowDebugInfo ->
+        [ Html.button
+            [ prop.onClick (fun _ -> dispatch RemoveLines)
+              prop.text "Remove Lines" ]
+
+          Html.span (sprintf "GameState: %A" model)
+          Html.span
+              (sprintf "PieceSet: %A" (getPieceSet gameState.CurrentPiece.Shape gameState.CurrentPiece.Orientation)) ]
+    | _ -> []
 
 let view (model: Model) (dispatch: Msg -> unit) =
+    let tilesOnMainCanvas =
+        match model with
+        | NotStarted -> []
+        | Playing gameState
+        | Paused gameState
+        | GameOver gameState ->
+            [ yield! drawBoard gameState.Board
+              yield! drawPieceState gameState.CurrentPiece ]
+
+    let tilesOnNextPieceCanvas =
+        match model with
+        | NotStarted -> []
+        | Playing gameState
+        | Paused gameState
+        | GameOver gameState -> drawNextPieceCanvas gameState.NextShape
+
     Html.div
         [ Html.button
             [ prop.onClick (fun _ -> dispatch StartNewGamePressed)
@@ -157,18 +302,17 @@ let view (model: Model) (dispatch: Msg -> unit) =
               [ prop.onClick (fun _ -> dispatch ResumePressed)
                 prop.text "Resume" ]
 
-          Html.h6 (sprintf "%s. Lines cleared: %d" (gameStatusText model.TimerState) model.LinesCleared)
+          Html.h6 (gameStatusText model)
           Html.svg
               [ prop.viewBox (0, 0, canvasWidth, canvasHeight)
                 prop.children
                     [ yield! drawBackground ()
-                      yield! drawBoard model.Board
-                      yield! drawPieceState model.CurrentPiece ]
+                      yield! tilesOnMainCanvas ]
                 unbox ("width", "200px") ]
 
           Html.svg
               [ prop.viewBox (0, 0, nextPieceCanvasSize, nextPieceCanvasSize)
-                prop.children (drawNextPieceCanvas model.NextShape)
+                prop.children tilesOnNextPieceCanvas
                 unbox ("width", "120px") ]
 
           Html.h6 "Debug"
@@ -176,22 +320,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
           Html.button
               [ prop.onClick (fun _ -> dispatch ToggleDebugPressed)
                 prop.text "Toggle Debug" ]
-          if model.ShowDebugInfo then
-              yield! [ Html.button
-                           [ prop.onClick (fun _ -> dispatch SpawnNextPiece)
-                             prop.text "Spawn piece" ]
-
-                       Html.button
-                           [ prop.onClick (fun _ -> dispatch LandPieceInPlace)
-                             prop.text "Land in place" ]
-
-                       Html.button
-                           [ prop.onClick (fun _ -> dispatch RemoveLines)
-                             prop.text "Remove Lines" ]
-
-                       Html.span (sprintf "GameState: %A" model)
-                       Html.span
-                           (sprintf "PieceSet: %A" (getPieceSet model.CurrentPiece.Shape model.CurrentPiece.Orientation)) ] ]
+          yield! (debugPanel model dispatch) ]
 
 let mergedSubscription initial =
     let timerSub dispatch =
@@ -214,7 +343,7 @@ let mergedSubscription initial =
         [ Cmd.ofSub timerSub
           Cmd.ofSub keyPressSub ]
 
-Program.mkSimple init update view
+Program.mkProgram init update view
 |> Program.withSubscription mergedSubscription
 |> Program.withReactSynchronous "elmish-app"
 |> Program.run

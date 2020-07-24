@@ -9,18 +9,12 @@ type PieceState =
       X: int
       Y: int }
 
-type TimerState =
-    | Running
-    | Paused
-    | GameOver
-
 type GameState =
     { Board: BoardMap
       CurrentPiece: PieceState
       NextShape: PieceShape
       MillisecondsSinceLastTick: int
       LinesCleared: int
-      TimerState: TimerState
       ShowDebugInfo: bool }
 
 module GameLogic =
@@ -32,19 +26,6 @@ module GameLogic =
 
     [<Literal>]
     let PieceSize = 4
-
-    let getRandomShape (): PieceShape =
-        match Random().Next(7) with
-        | 0 -> T
-        | 1 -> S
-        | 2 -> Z
-        | 3 -> I
-        | 4 -> O
-        | 5 -> L
-        | 6 -> J
-        | unexpectedRandomNumber ->
-            failwithf "Something went wrong: the random number expected to be between 0 and 6. Actual: %d"
-                unexpectedRandomNumber
 
     let nextOrientation (currentOrientation: Orientation): Orientation =
         match currentOrientation with
@@ -71,28 +52,31 @@ module GameLogic =
         |> addRightBoundary
         |> addBottomBoundary
 
-    let resetPiece (pieceShape: PieceShape) =
+    let initPiece (pieceShape: PieceShape): PieceState =
         { Shape = pieceShape
           Orientation = Up
           X = 3
           Y = -2 }
 
-    let initState () =
+    let initState (startingPieceShape: PieceShape) (nextPieceShape: PieceShape): GameState =
         { Board = Map.empty |> addBoundaries
-          CurrentPiece = resetPiece <| getRandomShape ()
-          NextShape = getRandomShape ()
+          CurrentPiece = initPiece <| startingPieceShape
+          NextShape = nextPieceShape
           MillisecondsSinceLastTick = 0 // TODO: TimeSpan?
           LinesCleared = 0
-          TimerState = Paused
           ShowDebugInfo = false }
 
-    let landPieceOnBoard (piece: PieceState) (board: BoardMap) =
-        getPieceSet piece.Shape piece.Orientation
-        |> Set.fold (fun tempBoard (x, y) ->
-            tempBoard
-            |> Map.add (x + piece.X, y + piece.Y) (OccupiedBy piece.Shape)) board
+    let landPiece (gameState: GameState): GameState =
+        let newBoard =
+            getPieceSet gameState.CurrentPiece.Shape gameState.CurrentPiece.Orientation
+            |> Set.fold (fun tempBoard (x, y) ->
+                tempBoard
+                |> Map.add (x + gameState.CurrentPiece.X, y + gameState.CurrentPiece.Y)
+                       (OccupiedBy gameState.CurrentPiece.Shape)) gameState.Board
 
-    let hasCollisionWith (board: BoardMap) (piece: PieceState) =
+        { gameState with Board = newBoard }
+
+    let hasCollisionWith (board: BoardMap) (piece: PieceState): bool =
         let pieceSet =
             getPieceSet piece.Shape piece.Orientation
             |> Set.map (fun (x, y) -> (x + piece.X, y + piece.Y))
@@ -103,20 +87,10 @@ module GameLogic =
             |> Seq.map (fun ((x, y), _) -> (x, y))
             |> Set.ofSeq
 
-        let intersectionSet = boardSet |> Set.intersect pieceSet
-        intersectionSet |> Set.isEmpty |> not
-
-    // TODO: This should be a Cmd/effect
-    let spawnNextPiece (gameState: GameState): GameState =
-        let newCurrentPiece = resetPiece gameState.NextShape
-
-        if newCurrentPiece
-           |> hasCollisionWith gameState.Board then
-            { gameState with TimerState = GameOver }
-        else
-            { gameState with
-                  CurrentPiece = newCurrentPiece
-                  NextShape = getRandomShape () }
+        boardSet
+        |> Set.intersect pieceSet
+        |> Set.isEmpty
+        |> not
 
     let isOccupiedByPiece (boardTile: BoardTile): bool =
         match boardTile with
@@ -128,7 +102,7 @@ module GameLogic =
         | OccupiedBy _ -> false
         | Boundary -> true
 
-    let isFull (board: BoardMap) (line: int) =
+    let isFull (board: BoardMap) (line: int): bool =
         let tilesOnLine =
             board
             |> Map.toList
@@ -141,7 +115,7 @@ module GameLogic =
         [ 0 .. BoardHeight - 1 ]
         |> Seq.tryFindIndexBack (fun line -> line |> isFull board)
 
-    let removeLine (board: BoardMap) (line: int) =
+    let removeLine (board: BoardMap) (line: int): BoardMap =
         board
         |> Map.filter (fun (_, y) boardTile -> y <> line || boardTile |> isBoundary)
         |> Map.toList
@@ -164,92 +138,13 @@ module GameLogic =
                       LinesCleared = gameState.LinesCleared + 1 }
         | None -> gameState
 
-    let updateIfNoCollisionWith (newPiece: PieceState) (gameState: GameState) =
-        if newPiece |> hasCollisionWith gameState.Board then
-            gameState
-        else
-            { gameState with
-                  CurrentPiece = newPiece }
-
-    let processPieceLanded (gameState: GameState): GameState =
-        let newBoard =
-            gameState.Board
-            |> landPieceOnBoard gameState.CurrentPiece
-
-        { gameState with Board = newBoard }
-        |> clearLines
-        |> spawnNextPiece
-
-    let rec dropPiece (gameState: GameState): GameState =
-        let newPiece =
-            { gameState.CurrentPiece with
-                  Y = gameState.CurrentPiece.Y + 1 }
-
-        if newPiece |> hasCollisionWith gameState.Board then
-            gameState |> processPieceLanded
-        else
-            { gameState with
-                  CurrentPiece = newPiece }
-            |> dropPiece
-
-    let movePieceDown (gameState: GameState): GameState =
-        let newPiece =
-            { gameState.CurrentPiece with
-                  Y = gameState.CurrentPiece.Y + 1 }
-
-        if newPiece |> hasCollisionWith gameState.Board then
-            gameState |> processPieceLanded
-        else
-            { gameState with
-                  CurrentPiece = newPiece }
-
-    let movePieceLeft (gameState: GameState): GameState =
-        let newPiece =
-            { gameState.CurrentPiece with
-                  X = gameState.CurrentPiece.X - 1 }
-
-        gameState |> updateIfNoCollisionWith newPiece
-
-    let movePieceRight (gameState: GameState): GameState =
-        let newPiece =
-            { gameState.CurrentPiece with
-                  X = gameState.CurrentPiece.X + 1 }
-
-        gameState |> updateIfNoCollisionWith newPiece
-
-    let rotatePiece (gameState: GameState): GameState =
-        let newPiece =
-            { gameState.CurrentPiece with
-                  Orientation =
-                      gameState.CurrentPiece.Orientation
-                      |> nextOrientation }
-
-        gameState |> updateIfNoCollisionWith newPiece
-
-    let timerIntervalsPerLevel = [| 1000; 500; 400; 300; 200; 100; 50 |]
+    let timerIntervalsPerLevel = [| 500; 400; 300; 200; 100; 75; 50 |]
 
     [<Literal>]
     let ClearedLinesBetweenLevelIncreases = 10
 
-    let timerInterval (linesCleared: int): int =
+    let getTimerInterval (linesCleared: int): int =
         let level =
             linesCleared / ClearedLinesBetweenLevelIncreases
 
         timerIntervalsPerLevel.[level]
-
-    let tick (milliseconds: int) (gameState: GameState): GameState =
-        // TODO: Move out of the tick function?
-        match gameState.TimerState with
-        | Running ->
-            let newMillisecondsSinceLastTick =
-                gameState.MillisecondsSinceLastTick + milliseconds
-
-            if newMillisecondsSinceLastTick > timerInterval gameState.LinesCleared then
-                { gameState with
-                      MillisecondsSinceLastTick = 0 }
-                |> movePieceDown
-            else
-                { gameState with
-                      MillisecondsSinceLastTick = newMillisecondsSinceLastTick }
-        | Paused
-        | GameOver -> gameState
