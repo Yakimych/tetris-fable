@@ -54,17 +54,15 @@ let getRandomShape () =
         failwithf "Something went wrong: the random number expected to be between 0 and 6. Actual: %d"
             unexpectedRandomNumber
 
-let dispatchMovePieceDown (dispatch: Msg -> unit) = dispatch MovePieceDown
+let spawnRandomPieceCmd =
+    getRandomShape >> SpawnNextPiece >> Cmd.ofMsg
 
-let spawnRandomPiece (dispatch: Msg -> unit) =
-    dispatch <| SpawnNextPiece(getRandomShape ())
-
-let startNewGame (dispatch: Msg -> unit) =
+let startNewGameCmd () =
     let startingPieceShape = getRandomShape ()
     let nextPieceShape = getRandomShape ()
 
-    dispatch
-    <| StartNewGame(startingPieceShape, nextPieceShape)
+    StartNewGame(startingPieceShape, nextPieceShape)
+    |> Cmd.ofMsg
 
 let movePieceLeft (pieceState: PieceState) = { pieceState with X = pieceState.X - 1 }
 
@@ -98,7 +96,7 @@ let update (msg: Msg) (model: Model) =
                 { gameState with
                       MillisecondsSinceLastTick = 0 }
 
-            Playing(stateWithResetElapsedTime), Cmd.ofSub dispatchMovePieceDown
+            Playing(stateWithResetElapsedTime), Cmd.ofMsg MovePieceDown
         else
             let stateWithUpdatedElapsedTime =
                 { gameState with
@@ -120,7 +118,7 @@ let update (msg: Msg) (model: Model) =
                 |> GameLogic.landPiece
                 |> GameLogic.clearLines
 
-            Playing(newGameState), Cmd.ofSub spawnRandomPiece
+            Playing(newGameState), spawnRandomPieceCmd ()
         else
             Playing
                 ({ gameState with
@@ -131,7 +129,7 @@ let update (msg: Msg) (model: Model) =
     | (Playing gameState, LeftPressed) -> setPieceIfNoCollision gameState (gameState.CurrentPiece |> movePieceLeft)
     | (Playing gameState, RightPressed) -> setPieceIfNoCollision gameState (gameState.CurrentPiece |> movePieceRight)
 
-    | (Playing _, SpawnNextPieceRequested) -> model, Cmd.ofSub spawnRandomPiece
+    | (Playing _, SpawnNextPieceRequested) -> model, spawnRandomPieceCmd ()
     | (Playing gameState, SpawnNextPiece nextPieceShape) ->
         let newCurrentPiece = GameLogic.initPiece gameState.NextShape
 
@@ -151,7 +149,7 @@ let update (msg: Msg) (model: Model) =
 
     | (Paused gameState, ResumePressed) -> Playing gameState, Cmd.none
 
-    | (_, StartNewGamePressed) -> NotStarted, Cmd.ofSub startNewGame
+    | (_, StartNewGamePressed) -> NotStarted, startNewGameCmd ()
     | (_, StartNewGame (startingPieceShape, nextPieceShape)) ->
         Playing(GameLogic.initState startingPieceShape nextPieceShape), Cmd.none
 
