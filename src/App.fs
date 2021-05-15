@@ -7,15 +7,11 @@ open Feliz
 open Tetris.Types
 open Tetris.Styling
 
-type PieceState =
-    { Shape: PieceShape
-      Orientation: Orientation
-      X: int
-      Y: int }
-
 type GameState =
     { Board: BoardMap
-      CurrentPiece: PieceState
+      CurrentShape: PieceShape
+      Orientation: Orientation
+      PieceCoords: (int * int)
       NextShape: PieceShape
       MillisecondsSinceLastTick: int
       LinesCleared: int }
@@ -74,36 +70,35 @@ module Logic =
 
     let addBoundaries: BoardMap -> BoardMap = addSideBoundaries >> addBottomBoundary
 
-    let initPiece (pieceShape: PieceShape): PieceState =
-        { Shape = pieceShape
-          Orientation = Up
-          X = 3
-          Y = -2 }
+    let startCoords = (3, -2)
 
     let initState (startingPieceShape: PieceShape) (nextPieceShape: PieceShape): GameState =
         { Board = Map.empty |> addBoundaries
-          CurrentPiece = initPiece <| startingPieceShape
+          CurrentShape = startingPieceShape
+          Orientation = Up
+          PieceCoords = startCoords
           NextShape = nextPieceShape
           MillisecondsSinceLastTick = 0 // TODO: TimeSpan?
           LinesCleared = 0 }
 
     let landPiece (gameState: GameState): GameState =
         let newBoard =
-            getPieceSet gameState.CurrentPiece.Shape gameState.CurrentPiece.Orientation
+            getPieceSet gameState.CurrentShape gameState.Orientation
             |> Set.fold (fun tempBoard (x, y) ->
+                let (pieceX, pieceY) = gameState.PieceCoords
                 tempBoard
-                |> Map.add (x + gameState.CurrentPiece.X, y + gameState.CurrentPiece.Y)
-                       (OccupiedBy gameState.CurrentPiece.Shape)) gameState.Board
+                |> Map.add (x + pieceX, y + pieceY) (OccupiedBy gameState.CurrentShape)) gameState.Board
 
         { gameState with Board = newBoard }
 
-    let hasCollisionWith (board: BoardMap) (piece: PieceState): bool =
+    let hasCollisions (gameState: GameState): bool =
+        let (pieceX, pieceY) = gameState.PieceCoords
         let pieceSet =
-            getPieceSet piece.Shape piece.Orientation
-            |> Set.map (fun (x, y) -> (x + piece.X, y + piece.Y))
+            getPieceSet gameState.CurrentShape gameState.Orientation
+            |> Set.map (fun (x, y) -> (x + pieceX, y + pieceY))
 
         let boardSet =
-            board
+            gameState.Board
             |> Map.toSeq
             |> Seq.map (fun ((x, y), _) -> (x, y))
             |> Set.ofSeq
@@ -190,22 +185,20 @@ module Logic =
         StartNewGame(startingPieceShape, nextPieceShape)
         |> Cmd.ofMsg
 
-    let movedLeft (pieceState: PieceState) = { pieceState with X = pieceState.X - 1 }
+    let offsetBy (offset: (int * int)) (oldCoords: (int * int)) =
+        let (oldX, oldY) = oldCoords
+        let (offsetX, offsety) = offset
+        (oldX + offsetX, oldY + offsety)
 
-    let movedRight (pieceState: PieceState) = { pieceState with X = pieceState.X + 1 }
+    let movedLeft (pieceState: GameState) =
+        { pieceState with PieceCoords = pieceState.PieceCoords |> offsetBy (-1, 0) }
 
-    let getRotatedPiece (pieceState: PieceState) =
+    let movedRight (pieceState: GameState) =
+        { pieceState with PieceCoords = pieceState.PieceCoords |> offsetBy (1, 0) }
+
+    let getRotatedPiece (pieceState: GameState) =
         { pieceState with
               Orientation = pieceState.Orientation |> getNextOrientation }
-
-    let setPieceIfNoCollision (gameState: GameState) (newPiece: PieceState) =
-        if newPiece |> hasCollisionWith gameState.Board then
-            Running gameState, Cmd.none
-        else
-            Running
-                ({ gameState with
-                       CurrentPiece = newPiece }),
-            Cmd.none
 
     let update (msg: Msg) (model: Model): Model * Cmd<Msg> =
         match (model, msg) with
@@ -229,34 +222,41 @@ module Logic =
 
         | (Running gameState, MovePieceDown)
         | (Running gameState, DownPressed) ->
-            let newPiece =
-                { gameState.CurrentPiece with
-                      Y = gameState.CurrentPiece.Y + 1 }
+            let newGameState =
+                { gameState with
+                      PieceCoords = gameState.PieceCoords |> offsetBy (0, 1) }
 
-            if newPiece |> hasCollisionWith gameState.Board then
+            if newGameState |> hasCollisions then
                 Running(gameState |> landPiece |> clearLines), spawnRandomPieceCmd ()
             else
-                Running
-                    ({ gameState with
-                           CurrentPiece = newPiece }),
-                Cmd.none
+                Running newGameState, Cmd.none
 
-        | (Running gameState, UpPressed) -> setPieceIfNoCollision gameState (gameState.CurrentPiece |> getRotatedPiece)
-        | (Running gameState, LeftPressed) -> setPieceIfNoCollision gameState (gameState.CurrentPiece |> movedLeft)
-        | (Running gameState, RightPressed) -> setPieceIfNoCollision gameState (gameState.CurrentPiece |> movedRight)
+        | (Running gameState, UpPressed) ->
+            let newGameState = gameState |> getRotatedPiece
+            let validatedGameState = if newGameState |> hasCollisions then gameState else newGameState
+            Running validatedGameState, Cmd.none
+
+        | (Running gameState, LeftPressed) ->
+            let newGameState = gameState |> movedLeft
+            let validatedGameState = if newGameState |> hasCollisions then gameState else newGameState
+            Running validatedGameState, Cmd.none
+
+        | (Running gameState, RightPressed) -> 
+            let newGameState = gameState |> movedRight
+            let validatedGameState = if newGameState |> hasCollisions then gameState else newGameState
+            Running validatedGameState, Cmd.none
 
         | (Running gameState, SpawnNextPiece nextPieceShape) ->
-            let newPiece = initPiece gameState.NextShape
+            let gameWithNewPiece =
+                { gameState with
+                    CurrentShape = gameState.NextShape
+                    NextShape = nextPieceShape
+                    PieceCoords = startCoords }
 
-            if newPiece |> hasCollisionWith gameState.Board then
+            if gameWithNewPiece |> hasCollisions then
                 GameOver gameState, Cmd.none
             else
-                let newState =
-                    { gameState with
-                          CurrentPiece = newPiece
-                          NextShape = nextPieceShape }
-
-                Running newState, Cmd.none
+                Running gameWithNewPiece, Cmd.none
 
         | (Running gameState, PausePressed) -> Paused gameState, Cmd.none
         | (Paused gameState, ResumePressed) -> Running gameState, Cmd.none
@@ -290,8 +290,9 @@ module View =
         |> Set.toList
         |> List.map (fun (x, y) -> drawCell (atX + x) (atY + y) (getPieceColor pieceShape))
 
-    let drawPieceState (pieceState: PieceState) =
-        drawPiece pieceState.X pieceState.Y pieceState.Shape pieceState.Orientation
+    let drawPieceState (pieceState: GameState) =
+        let (pieceX, pieceY) = pieceState.PieceCoords
+        drawPiece pieceX pieceY pieceState.CurrentShape pieceState.Orientation
 
     let drawNextPieceCanvas (pieceShape: PieceShape): Fable.React.ReactElement list =
         let nextPieceCanvasRect =
@@ -374,7 +375,7 @@ module View =
             | Paused gameState
             | GameOver gameState ->
                 [ yield! drawBoard gameState.Board
-                  yield! drawPieceState gameState.CurrentPiece ]
+                  yield! drawPieceState gameState ]
 
         let tilesOnNextPieceCanvas =
             match model with
